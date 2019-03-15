@@ -1,13 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include "graphics.h"
 
 typedef struct _cell{
   struct _cell** neighbours;
   int current;
   int next;
 } cell;
+
+const int cellColor=0;
+const int windowWidth=800;
 
 void seed_cells(cell**, int , int );
 void obtain_neighbours(cell**, int , int , cell*);
@@ -16,13 +19,57 @@ void print_cell(cell** , int , int);
 void generation_update(cell*);
 void evolution(cell*);
 
+void DrawCell(int i, int j, int N, int L, int W){
+  float dx = 1/(float)N;
+  float dy = dx;
+  float cellWidth = dx;
+  float x = dx*j - dx/2;
+  float y = 1 - dx*i -dy/2; //as to preserve same order as matrix (0,0) on top
+  DrawRectangle(x,y, L, W, cellWidth, cellWidth, cellColor);
+  return;
+}
+/*void next_gen_graph(int N, int** state, int** state_new, int W, int L){
+  //get neighbours
+  //get first row
+  for(int i=1; i < N+1; i++){
+    for(int j=1; j < N+1; j++){
+      int num_neighbours= state[i-1][j-1] + state[i-1][j] + state[i-1][j+1] +
+      state[i][j-1] +state[i][j+1] +state[i+1][j-1] +state[i+1][j]
+      +state[i+1][j+1];
+      if(state[i][j]==1){
+        //cell is on, if 2 n or 3 stays on otherwise dies
+        if(num_neighbours !=2  && num_neighbours != 3){
+          state_new[i][j]=0;
+        }else{
+          state_new[i][j]=1;
+          DrawCell(i, j, N, L, W);
+        }
+      }else{
+        state_new[i][j]=0;
+        //cell is off, turn on if 3 neighbours
+        if(num_neighbours ==3){
+          state_new[i][j]=1;
+          DrawCell(i, j, N, L, W);
+        }
+      }
+    }
+  }
+}*/
 
+
+void generation_update_draw_cell(cell* cell , int i ,int j , int W , int L , int N){
+  cell->current = cell->next;
+  if (cell->current){
+    DrawCell( i , j , N , L , W);
+  }
+}
 
 int main(int argc, char *argv[]) {
 
   if (argc != 4){
     printf("Introduce only one argument \n");
   }
+  float L=1, W=1;
 
   const int N = atoi(argv[1]);
   const int M = atoi(argv[2]);
@@ -35,9 +82,11 @@ int main(int argc, char *argv[]) {
     cells_grid[i] = (cell*)malloc(M*sizeof(cell));
   }
 
-
+  InitializeGraphics("0",windowWidth,windowWidth);
+  SetCAxes(0,1);
+  ClearScreen();
   seed_cells(cells_grid , N, M);
-//  print_cell(cells_grid , N , M);
+  print_cell(cells_grid , N , M);
 
   //printf(" %c" , rand() & 1 );
   cell *b = (cell*)malloc(sizeof(cell));
@@ -45,8 +94,6 @@ int main(int argc, char *argv[]) {
   b->current = 0;
   b->next = 0;
   obtain_neighbours(cells_grid , N , M , b);
-  //free(b);
-
 
   for (int k = 0 ; k < n_steps ; k++){
     for (int i = 0 ; i < N ; i++){
@@ -55,15 +102,21 @@ int main(int argc, char *argv[]) {
           evolution(pointer);
       }
     }
+    ClearScreen();
     for (int i = 0 ; i < N ; i++){
       for (int j = 0 ; j < M ; j++){
-          generation_update(&cells_grid[i][j]);
+
+          generation_update_draw_cell(&cells_grid[i][j], i , j,  W, L , N);
+
       }
     }
-    //printf(" \n");
-    //print_cell(cells_grid , N , M);
+    Refresh();
+
+    usleep(50000);
 
   }
+  FlushDisplay();
+  CloseDisplay();
 
   free_neighbours(cells_grid,N , M);
 
