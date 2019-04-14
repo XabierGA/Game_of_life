@@ -13,7 +13,7 @@ for i in range(len(time)):
 	std.append(time[i][1])
 
 def function(x,a ,b,c):
-    return a*x*np.log(b*x)+c
+    return a*x**2+b*x+c
 
 param , popt = curve_fit(function, data_N , mean)
 
@@ -44,9 +44,9 @@ numbers = np.linspace(min(data_N) , max(data_N) , 10000)
 y_fit = []
 for i in range(len(numbers)):
 	y_fit.append(function(numbers[i] , *param))
-plt.plot(numbers , y_fit , 'c-' , label = "$n log(n)$ fit")
+plt.plot(numbers , y_fit , 'c-' , label = "$N^{2}$ fit")
 plt.ylabel("Time (s)")
-plt.title("Complexity analysis of the Barnes-Hut algorithm")
+plt.title("Complexity analysis of Game of Life")
 plt.xlabel("N")
 plt.legend(loc=2)
 print("Input a name with .pdf extension for the image")

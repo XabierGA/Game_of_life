@@ -35,7 +35,8 @@ int main(){
   }
 */
 printf("\n");
-  for (int i = 1 ; i < (N-1) ;i++){
+/*
+  for (int i =  ; i < (N-1) ;i++){
     printf("Up neighbour : %lf: " , matrix[i-1][0]);
     printf("Right up Neighbour: %lf: \n", matrix[i-1][1] );
     printf("Particle: %lf: ", matrix[i][0] );
@@ -43,21 +44,28 @@ printf("\n");
     printf("Down Neighbour: %lf: " ,matrix[i+1][0] );
     printf("Right Down Neighbour: %lf: \n" ,matrix[i+1][1] );
   }
-
-  for (int i = 1 ; i<(N-1) ; i++){
-    for (int j = 1 ; j < (N-1) ; j++){
-      printf("Left up Neighbour: %lf: ", matrix[i-1][j-1] );
-      printf("Up Neighbour: %lf: " ,matrix[i-1][j] );
-      printf("Right up Neighbour: %lf: \n", matrix[i-1][j+1] );
-      printf("Left Neighbour: %lf: ", matrix[i][j-1] );
-      printf("Particle: %lf: ", matrix[i][j] );
-      printf("Right Neighbour: %lf: \n" ,matrix[i][j+1] );
-      printf("Left Down Neighbour: %lf: ", matrix[i+1][j-1] );
-      printf("Down Neighbour: %lf: " ,matrix[i+1][j] );
-      printf("Right Down Neighbour: %lf: \n" ,matrix[i+1][j+1] );
+  */
+/*
+  for (int i = 0 ; i<(N) ; i++){
+    for (int j = 0; j < N ; j++){
+      printf("%d \n ", (i-1)%N);
+      printf("%d \n ", (j-1)%N);
+      printf("Left up Neighbour: %lf: ", matrix[(i-1)%N][(j-1)%N] );
+      printf("Up Neighbour: %lf: " ,matrix[(i-1)%N][j%N] );
+      printf("Right up Neighbour: %lf: \n", matrix[(i-1)%N][(j+1)%N] );
+      printf("Left Neighbour: %lf: ", matrix[i%N][(j-1)%N] );
+      printf("Particle: %lf: ", matrix[i%N][j%N] );
+      printf("Right Neighbour: %lf: \n" ,matrix[i%N][(j+1)%N] );
+      printf("Left Down Neighbour: %lf: ", matrix[(i+1)%N][(j-1)%N] );
+      printf("Down Neighbour: %lf: " ,matrix[(i+1)%N][j%N] );
+      printf("Right Down Neighbour: %lf: \n" ,matrix[(i+1)%N][(j+1)%N] );
     }
-  }
+  }*/
 
+for (int i = 0 ; i < 10 ; i++){
+  int new = rand() % 15;
+  printf("%d \n" , new);
+}
 /*  printf("%lf \n" , flat[N]);
   printf("%lf \n" , flat[2]);
   printf("%lf \n" , flat[N*(N-1)]);
@@ -72,6 +80,8 @@ printf("\n");
     free(matrix[i]);
   }
   free(matrix);
-
-
+  int coef = 32%45;
+  int coef2 = 47%45;
+  printf("%d \n", coef);
+  printf("%d \n" , coef2);
 }

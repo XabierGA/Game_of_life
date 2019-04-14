@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <time.h>
 
 typedef struct _cell{
   struct _cell** neighbours;
@@ -19,7 +19,10 @@ void evolution(cell*);
 
 
 int main(int argc, char *argv[]) {
+  struct timespec start, finish;
+  double elapsed;
 
+  clock_gettime(CLOCK_MONOTONIC, &start);
   if (argc != 4){
     printf("Introduce only one argument \n");
   }
@@ -27,8 +30,10 @@ int main(int argc, char *argv[]) {
   const int N = atoi(argv[1]);
   const int M = atoi(argv[2]);
   const int n_steps = atoi(argv[3]);
+  const int NUM_THREADS = atoi(argv[4]);
 
-
+  const int N_BLOCKS = N/NUM_THREADS;
+  const int M_BLOCKS = M/NUM_THREADS;
 
   cell ** cells_grid = (cell**)malloc(N*sizeof(cell*));
   for (int i = 0 ; i < N; i++){
@@ -71,9 +76,27 @@ int main(int argc, char *argv[]) {
   free(cells_grid);
 
   free(b);
-}
-void seed_cells(cell** cells_grid , int N , int M){
+  clock_gettime(CLOCK_MONOTONIC, &finish);
 
+  elapsed = (finish.tv_sec - start.tv_sec);
+  elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+  FILE *file3;
+  file3 = fopen("time.txt" , "a+");
+  fprintf(file3 , "%lf \n" , elapsed);
+  fclose(file3);
+}
+
+
+void seed_cells(cell** cells_grid , int N , int M){
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   Seed_Cell
+   # Purpose:    Fills the cells of the with alive and dead cells (0 or 1)
+   # In args:
+   #              cells_grid : uninitialized world
+   #             M:  number of rows in world
+   #             N:  number of cols in world
+   #
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
   for (int i = 0 ; i<N ; i++){
     for (int j = 0 ; j<M ; j++){
       int cur = rand()%2;
@@ -83,7 +106,42 @@ void seed_cells(cell** cells_grid , int N , int M){
   }
 }
 
+struct argument{
+  cell** world;
+  int index;
+  int row_blocks;
+  int column_blocks;
+}
+
+void* pthreads_evolution(void* arg){
+
+  struct argument useful_arg = (struct argument)(arg);
+  int start_row = (useful_arg.row_blocks)*(useful_arg.index);
+  int start_column = (useful_arg.column_blocks)*(useful_arg.index);
+  int last_row = start_row + useful_arg.row_blocks;
+  int last_column = start_column + useful_arg.column_blocks;
+
+  for (int i = start_row ; i < last_row ; i++){
+    for (int j = start_column ; j < last_column ; j++){
+
+    }
+  }
+
+
+}
+
+
+
 void print_cell(cell** cells_grid , int N , int M){
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   Print_cell
+   # Purpose:    Print the current generation
+   # In args:
+   #              cells_grid : whole world
+   #             M:  number of rows in world
+   #             N:  number of cols in world
+   #
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
   for (int i = 0 ; i < N ; i++){
     for (int j = 0 ; j < M ; j++){
       printf(" %d " , cells_grid[i][j].current);
@@ -93,6 +151,15 @@ void print_cell(cell** cells_grid , int N , int M){
 }
 
 void obtain_neighbours(cell** cells_grid , int N , int M , cell* b ){
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   Obtain Neighbours
+   # Purpose:    Loads pointers to the neighbours of each cell in the array member of cell struct
+   # In args:
+   #              cells_grid : cell from which we will find the neighbours
+   #             M:  number of rows in world
+   #             N:  number of cols in world
+   #             b: auxiliary pointer for in the corners
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
   //obtain neighbours for [0][0]
   cells_grid[0][0].neighbours = (cell**)malloc(8*sizeof(cell*));
   cells_grid[N-1][0].neighbours = (cell**)malloc(8*sizeof(cell*));
@@ -220,40 +287,61 @@ void obtain_neighbours(cell** cells_grid , int N , int M , cell* b ){
 
 
 void free_neighbours(cell** cells_grid , int N , int M){
-
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   Free_Neighbours
+   # Purpose:    Auxiliary function that frees the neighbour array
+   # In args:    title
+   #              cells_grid : we will iterate over each cell
+   #             M:  number of rows in world
+   #             N:  number of cols in world
+   #
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
   for (int i = 0 ; i < N ; i++){
     for (int j = 0 ; j < M ; j++){
-      for (int k = 0 ; k < 8 ; k++){
-      //  free(cells_grid[i][j].neighbours[k]);
-      }
       free(cells_grid[i][j].neighbours);
     }
   }
 }
 
-void evolution(cell* cell){
-  int counter = 0;
-  for (int i = 0 ; i < 8 ; i++){
-    counter+=(*cell).neighbours[i]->current;
-  }
-  if ((*cell).current == 1){
-    if (counter<2){
-      (*cell).next = 0;
-    }
-    else if(counter == 2 || counter == 3){
-      (*cell).next = 1;
-    }
-    else{
-      (*cell).next = 0;
-    }
-  }
-  else{
-    if (counter ==3){
-      (*cell).next = 1;
-      }
-    }
-  }
 
-void generation_update(cell* cell){
+
+inline void evolution(cell * cell){
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   Evolution
+   # Purpose:    Applies the transition rule of COnways Game of life
+   # In args:    title
+   #              cell: we will iterate over all cells again, it takes a pointer to each cell so td
+   #              that its value can be changed
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
+     int counter = 0;
+     for (int i = 0 ; i < 8 ; i++){
+       counter+=(*cell).neighbours[i]->current;
+     }
+     if ((*cell).current == 1){
+       if (counter<2){
+         (*cell).next = 0;
+       }
+       else if(counter == 2 || counter == 3){
+         (*cell).next = 1;
+       }
+       else{
+         (*cell).next = 0;
+       }
+     }
+     else{
+       if (counter ==3){
+         (*cell).next = 1;
+         }
+       }
+     }
+
+inline void generation_update(cell* cell){
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   generation_update
+   # Purpose:    Updates the cell to its state in the next generation
+   # In args:    title
+   #              cell: we will iterate over all cells again, it takes a pointer to each cell so td
+   #              that its value can be changed
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
   cell->current = cell->next;
 }

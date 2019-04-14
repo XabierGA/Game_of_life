@@ -7,12 +7,12 @@ cp makefile "../"
 cp complexity.py "../"
 cd ".."&&pwd
 script="$1"
-echo "10 200 400 600 800 1000 1500" > numbers.txt
+echo "10 20 220 420 620 820 1020" > numbers.txt
 make generate_with_ffast_native argument="$script"
 counter=1
 while [ $counter -le 10 ]
 do
-	./ffast_native 10 ellipse_N_00010.gal 100 0.00001 0.2555 0
+	./ffast_native 10 10 1000
 	((counter++))
 done
 printf '\n \n \n'
@@ -23,7 +23,7 @@ rm -f time.txt
 counter=1
 while [ $counter -le 10 ]
 do
-	./ffast_native 200 ellipse_N_00200.gal 100 0.00001 0.2555 0
+	./ffast_native 20 20 1000
 	((counter++))
 done
 printf '\n \n \n'
@@ -34,7 +34,7 @@ rm -f time.txt
 counter=1
 while [ $counter -le 10 ]
 do
-	./ffast_native 400 ellipse_N_00400.gal 100 0.00001 0.2555 0
+	./ffast_native 220 220 1000
 	((counter++))
 done
 printf '\n \n \n'
@@ -45,7 +45,7 @@ rm -f time.txt
 counter=1
 while [ $counter -le 10 ]
 do
-	./ffast_native 600 ellipse_N_00600.gal 100 0.00001 0.2555 0
+	./ffast_native 420 420 1000
 	((counter++))
 done
 printf '\n \n \n'
@@ -56,7 +56,7 @@ rm -f time.txt
 counter=1
 while [ $counter -le 10 ]
 do
-	./ffast_native 800 ellipse_N_00800.gal 100 0.00001 0.2555 0
+	./ffast_native 620 620 1000
 	((counter++))
 done
 printf '\n \n \n'
@@ -67,7 +67,7 @@ rm -f time.txt
 counter=1
 while [ $counter -le 10 ]
 do
-	./ffast_native 1000 ellipse_N_01000.gal 100 0.00001 0.2555 0
+	./ffast_native 820 820 1000
 	((counter++))
 done
 printf '\n \n \n'
@@ -78,7 +78,7 @@ rm -f time.txt
 counter=1
 while [ $counter -le 10 ]
 do
-	./ffast_native 1500 ellipse_N_01500.gal 100 0.00001 0.2555 0
+	./ffast_native 1020 1020 1000
 	((counter++))
 done
 printf '\n \n \n'

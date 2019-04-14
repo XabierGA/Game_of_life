@@ -254,28 +254,7 @@ void free_neighbours(cell** cells_grid , int N , int M){
   }
 }
 
-inline void evolution(cell * cell){
-  int counter = 0;
-  for (int i = 0 ; i < 8 ; i++){
-    counter+=(*cell).neighbours[i]->current;
-  }
-  if ((*cell).current == 1){
-    if (counter<2){
-      (*cell).next = 0;
-    }
-    else if(counter == 2 || counter == 3){
-      (*cell).next = 1;
-    }
-    else{
-      (*cell).next = 0;
-    }
-  }
-  else{
-    if (counter ==3){
-      (*cell).next = 1;
-      }
-    }
-  }
+
 
 inline void generation_update(cell * cell){
   cell->current = cell->next;

@@ -1,8 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include "omp.h"
+#include <pthread.h>
 #include <time.h>
+//declare variables that will be read as arguments in main function
+int N_ROWS, M_COLS , N_STEPS  ,NUM_THREADS;
+
+//set counters and initialize mutex and conditions that will be used in barriers
+int counter_update = 0;
+int counter_evolve = 0;
+
+//declaring mutex and conditions that will be used for barriers
+pthread_mutex_t lock_update;
+pthread_cond_t signal_update;
+
+pthread_mutex_t lock_evolve;
+pthread_cond_t signal_evolve;
 
 typedef struct _cell{
   struct _cell** neighbours;
@@ -10,76 +22,167 @@ typedef struct _cell{
   int next;
 } cell;
 
-cell ** cells_grid ;
-cell *b ;
+//struct to pass arguments to pthread_create
+struct parameters{
+  int min;
+  int max;
+};
 
+
+cell** world;
 
 void seed_cells(cell**, int , int );
 void obtain_neighbours(cell**, int , int , cell*);
-void free_neighbours(cell**, int , int );
+void free_neighbours(cell**, int , int  );
 void print_cell(cell** , int , int);
-void generation_update(cell*);
-void evolution(cell*);
+void generation_update(int , int);
+void evolve(int  , int );
+void* evolution_threads(void*);
+void barrier_evolving();
+void barrier_update();
 
-//cell** cells_grid;
-//cell* b;
 
-int main(int argc, char *argv[]) {
-
-  if (argc != 4){
-    printf("Introduce only one argument \n");
-    return -1;
+int main(int argc , char* argv[]){
+  if (argc != 5){
+    printf("Wrong Number of Arguments\n");
   }
+  N_ROWS = atoi(argv[1]);
+  M_COLS = atoi(argv[2]);
+  N_STEPS = atoi(argv[3]);
+  NUM_THREADS = atoi(argv[4]);
 
-  const int N = atoi(argv[1]);
-  const int M = atoi(argv[2]);
-  const int n_steps = atoi(argv[3]);
 
+  //Declaring block size to parallelize over columns
+  int size_block = M_COLS/NUM_THREADS;
 
-
-  cells_grid = (cell**)malloc(N*sizeof(cell*));
-  for (int i = 0 ; i < N; i++){
-    cells_grid[i] = (cell*)malloc(M*sizeof(cell));
+  world = (cell**)malloc(N_ROWS*sizeof(cell*));
+  for (int i = 0 ; i < N_ROWS ; i++){
+    world[i] = (cell*)malloc(M_COLS*sizeof(cell));
   }
 
   //Applying the initial conditions
-  seed_cells(cells_grid , N, M);
+  seed_cells(world, N_ROWS, M_COLS);
 
-  b = (cell*)malloc(sizeof(cell));
+  //Auxiliary pointer
+  cell *b = (cell*)malloc(sizeof(cell));
   b->neighbours = NULL;
   b->current = 0;
   b->next = 0;
-  obtain_neighbours(cells_grid , N , M , b);
 
-  int j,i;
-  //Playing Game of life for n_steps generations
-  for (int k = 0 ; k < n_steps ; k++){
-    #pragma omp parallel for private(j) schedule(static,1)
-    for ( i = 0 ; i < M ; i++){
-      for (j = 0 ; j < N ; j++){
-          evolution(&cells_grid[i][j]);
-      }
+
+  obtain_neighbours(world, N_ROWS , M_COLS , b);
+
+
+  struct parameters *arguments;
+  arguments = malloc(sizeof(struct parameters)*NUM_THREADS);
+
+
+  pthread_t* thread_handles = (pthread_t*)malloc(NUM_THREADS*sizeof(pthread_t));
+
+
+  printf("Size block : %d \n" , size_block);
+
+  //Playing Game of life for n_steps Generations
+  for (int t = 0 ; t < N_STEPS ; t++){
+    for (int i = 0 ; i < NUM_THREADS ; i++){
+      arguments[i].min = i*size_block;
+      arguments[i].max = i*size_block + size_block;
+      pthread_create((void*)&thread_handles[i] , NULL , (void*)evolution_threads , (void*)&arguments[i]);
     }
-   #pragma omp parallel for private(j) schedule(static, 1)
-    for (i = 0 ; i < M ; i++){
-      for ( j = 0 ; j < N ; j++){
-          generation_update(&cells_grid[i][j]);
-      }
+    for (int i = 0 ; i < NUM_THREADS ; i++){
+      pthread_join(thread_handles[i] , NULL);
     }
-}
-
-  free_neighbours(cells_grid,N , M);
-
-  for (int i = 0 ; i < N ; i++){
-    free(cells_grid[i]);
   }
-  free(cells_grid);
-
+  free(arguments);
+  free(thread_handles);
+  free_neighbours(world, N_ROWS, M_COLS);
+  for (int i = 0 ; i < M_COLS ; i++){
+    free(world[i]);
+  }
+  free(world);
   free(b);
 
- return 0;
-
+  return 0;
 }
+
+void* evolution_threads(void*arg){
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   evolution_threads
+   # Purpose:    Enables our previous evolve function to be
+                compatible with pthread, it iterates
+                over the global variable using evolve
+                and update function with its respective barriers.
+   # In args:
+   # @param arg ---->Struct that contain the boundaries for
+                      the parallelization
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
+  struct parameters *par = (struct parameters*)arg;
+    for (int i = par->min ;  i < par->max ; i++){
+      for (int j = 0 ; j < N_ROWS ; j++){
+        evolve(i , j);
+      }
+    }
+    barrier_evolving();
+    for (int i = par->min ;  i < par->max ; i++){
+      for (int j = 0 ; j < N_ROWS ; j++){
+        generation_update(i , j);
+      }
+    }
+    barrier_update();
+    return NULL;
+}
+
+void barrier_evolving(){
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   barrier_evolving
+   # Purpose:    Sets a barrier to ensure thread synchronization after using
+                  function evolve over different threads
+   # In args:
+                Void
+   #
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
+  pthread_mutex_lock(&lock_evolve);
+
+  counter_evolve++;
+  if (counter_evolve == NUM_THREADS){
+    pthread_cond_broadcast(&signal_evolve);
+    counter_evolve = 0;
+  }
+  else{
+    pthread_cond_wait(&signal_evolve , &lock_evolve);
+
+  }
+  pthread_mutex_unlock(&lock_evolve);
+  return;
+}
+
+void barrier_update(){
+  /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+   # Function:   barrier_update
+   # Purpose:    Sets a barrier to ensure thread synchronization after using
+                  function update over different threads
+   # In args:
+                Void
+   #
+   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
+  pthread_mutex_lock(&lock_update);
+
+  counter_update++;
+
+  if (counter_update == NUM_THREADS){
+    pthread_cond_broadcast(&signal_update);
+    counter_update = 0;
+
+  }
+  else{
+    pthread_cond_wait(&signal_update , &lock_update);
+  }
+  pthread_mutex_unlock(&lock_update);
+  return;
+}
+
+
+
 void seed_cells(cell** cells_grid , int N , int M){
   /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
    # Function:   Seed_Cell
@@ -90,10 +193,8 @@ void seed_cells(cell** cells_grid , int N , int M){
    # @param N:  number of cols in world
    #
    $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
-  int j;
-  #pragma omp parallel for private(j)
   for (int i = 0 ; i<N ; i++){
-    for (j = 0 ; j<M ; j++){
+    for (int j = 0 ; j<M ; j++){
       int cur = rand()%2;
       cells_grid[i][j].current = cur;
       cells_grid[i][j].next = cur;
@@ -118,6 +219,7 @@ void print_cell(cell** cells_grid , int N , int M){
     printf(" \n");
   }
 }
+
 
 void obtain_neighbours(cell** cells_grid , int N , int M , cell* b ){
   /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -261,37 +363,40 @@ void free_neighbours(cell** cells_grid , int N , int M){
   }
 }
 
-void evolution(cell* cell){
+void evolve(int i , int j){
   /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
    # Function:   Evolution
    # Purpose:    Applies the transition rule of COnways Game of life
    # In args:    title
-   # @param cell: we will iterate over all cells again, it takes a pointer to each cell so td
-   # @param that its value can be changed
+   #              cell: we will iterate over all cells again, it takes a pointer to each cell so td
+   #              that its value can be changed
    $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
-  int counter = 0;
-  for (int i = 0 ; i < 8 ; i++){
-    counter+=(*cell).neighbours[i]->current;
-  }
-  if ((*cell).current == 1){
-    if (counter<2){
-      (*cell).next = 0;
-    }
-    else if(counter == 2 || counter == 3){
-      (*cell).next = 1;
-    }
-    else{
-      (*cell).next = 0;
-    }
-  }
-  else{
-    if (counter ==3){
-      (*cell).next = 1;
+     int counter = 0;
+     for (int k = 0 ; k < 8 ; k++){
+       counter+=(world[i][j]).neighbours[k]->current;
+     }
+     if ((world[i][j]).current == 1){
+       if (counter<2){
+         (world[i][j]).next = 0;
+       }
+       else if(counter == 2 || counter == 3){
+         (world[i][j]).next = 1;
+       }
+       else{
+         (world[i][j]).next = 0;
+       }
+     }
+     else{
+       if (counter ==3){
+         (world[i][j]).next = 1;
+         }
+      else{
+         (world[i][j].next = 0);
       }
-    }
-  }
+       }
+     }
 
-void generation_update(cell* cell){
+void generation_update(int i , int j){
   /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
    # Function:   generation_update
    # Purpose:    Updates the cell to its state in the next generation
@@ -299,5 +404,5 @@ void generation_update(cell* cell){
    # @param cell: we will iterate over all cells again, it takes a pointer to each cell so td
    # @param that its value can be changed
    $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
-  cell->current = cell->next;
+  world[i][j].current = world[i][j].next;
 }
